@@ -1,0 +1,12 @@
+name: froctal
+version: 0.0.1
+synopsis: messing about with Froc
+obuild-ver: 1
+authors: Richard Mortier
+license: ISC
+
+executable froctal
+  main-is: main.ml
+  src-dir: exe
+  buildDepends: cmdliner, froc
+
