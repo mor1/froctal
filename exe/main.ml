@@ -14,46 +14,47 @@
  *)
 
 open Printf
-open Froc
+module F = Froc
+module DG = Froc_ddg
+module SA = Froc_sa
 
-let (/) = lift2 (/)
-and ( * ) = lift2 ( * )
-and (+) = lift2 (+)
+let (/) = F.lift2 (/)
+and ( * ) = F.lift2 ( * )
+and (+) = F.lift2 (+)
+
+let ex_1 () = 
+  (* simple first example from
+     <http://ambassadortothecomputers.blogspot.co.uk/2010/05/how-froc-works.html> *)
+
+  let v = F.return 4 in
+  let w = F.return 2 in
+  let x = F.return 2 in
+  let y = F.return 3 in
+  let z = F.return 1 in
+
+  let u = v / w + x * y + z in
+  
+  printf "+ ex_1 u = %d\n%!" (F.sample u)
+
+let ex_1a () = 
+  (* extending ex_1 *)
+
+  let v = F.return 4 in
+  let w = F.return 2 in
+  let x = F.return 2 in
+  let y = F.return 3 in
+  let z, zs = F.make_cell 1 in
+
+  let u = v / w + x * y + z in
+  
+  printf "+ ex_1a u = %d\n%!" (F.sample u); 
+  zs 2;
+  DG.propagate (); (* wonder why `propagate` not exposed in Froc? *)
+  printf "+ ex_1a u = %d\n%!" (F.sample u)
 
 let () = 
-
-  let v = return 4 in
-  let w = return 2 in
-  let x = return 2 in
-  let y = return 3 in
-  let z = return 1 in
-
-  let u = v / w + x * y  + z in
-      
-  printf "Result u = %d\n%!" (sample u)
-
-(*
-
-
-  let (e1 : unit Froc.event), s1 = Froc.make_event ()
-  let (e2 : unit Froc.event), s2 = Froc.make_event ()
-
-  let b1 = Froc.count e1
-  let b2 = Froc.count e2
-
-  let b3 = ~|(fun () -> ~.b1 + ~.b2)
-(*
-  let b3 =
-  Froc_direct.direct begin fun () ->
-  Froc_direct.read b1 + Froc_direct.read b2
-  end
-*)
-
-;;
-
-prerr_endline (string_of_int (Froc.sample b3));
-Froc.send s1 ();
-prerr_endline (string_of_int (Froc.sample b3));
-Froc.send s2 ();
-prerr_endline (string_of_int (Froc.sample b3));
-*)
+  F.init ();
+  F.set_debug (fun s -> printf "+ %s\n%!" s);
+  
+  ex_1 ();
+  ex_1a ()
