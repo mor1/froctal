@@ -61,12 +61,35 @@ module Ex_1a = struct
     printf "+ ex_1a u = %d\n%!" (F.sample u)
 end
 
-  let u = v / w + x * y + z in
+module Ex_2 = struct
+  open Froc
   
-  printf "+ ex_1a u = %d\n%!" (F.sample u); 
-  zs 2;
-  DG.propagate (); (* wonder why `propagate` not exposed in Froc? *)
-  printf "+ ex_1a u = %d\n%!" (F.sample u)
+  (* second example from blog post (above) *)
+  let main () = 
+    let f x = 
+      let b = x = 0 in
+      let y = if b then 0 else 100 / x in
+      y
+    in    
+    printf "+ ex_2 (f 10 = %d) (f 0 = %d)\n%!" (f 10) (f 0);
+
+    let f' x = 
+      let x' = return x in (* begin by boxing the input `x` into a Froc behavior *)
+      let b = x' >>= fun x -> return (x = 0) in
+      let n0 = x' >>= fun x -> return (100 / x) in
+      (* example claims following:
+
+          let y = bind2 b n0 (fun b n0 -> if b then return 0 else n0) in
+
+         ...but looks to me like bind2_gen causes value to be read out of the
+         Froc.behavior. hence we try (return n0) below
+      *)
+      let y = bind2 b n0 (fun b n0 -> if b then return 0 else return n0) in
+      y
+    in
+    printf "+ ex_2 (f' 10 = %d) (f' 0 = %d)\n%!" (sample (f' 10)) (sample (f' 0))
+
+end
 
 let () = 
   F.init ();
