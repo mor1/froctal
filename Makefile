@@ -13,6 +13,7 @@
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 .PHONY: all configure build clean
+DEBUG ?= 
 
 all:
 	$(MAKE) configure
@@ -22,7 +23,7 @@ configure:
 	obuild configure
 
 build:
-	obuild build
+	obuild $(DEBUG) build
 
 clean:
 	obuild clean
