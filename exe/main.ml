@@ -18,32 +18,48 @@ module F = Froc
 module DG = Froc_ddg
 module SA = Froc_sa
 
-let (/) = F.lift2 (/)
-and ( * ) = F.lift2 ( * )
-and (+) = F.lift2 (+)
-
-let ex_1 () = 
+module Ex_1 = struct 
   (* simple first example from
-     <http://ambassadortothecomputers.blogspot.co.uk/2010/05/how-froc-works.html> *)
+     <http://ambassadortothecomputers.blogspot.co.uk/2010/05/how-froc-works.html>
+  *)
 
-  let v = F.return 4 in
-  let w = F.return 2 in
-  let x = F.return 2 in
-  let y = F.return 3 in
-  let z = F.return 1 in
-
-  let u = v / w + x * y + z in
+  let (/) = F.lift2 (/)
+  and ( * ) = F.lift2 ( * )
+  and (+) = F.lift2 (+)
   
-  printf "+ ex_1 u = %d\n%!" (F.sample u)
+  let main () = 
+    let v = F.return 4 in
+    let w = F.return 2 in
+    let x = F.return 2 in
+    let y = F.return 3 in
+    let z = F.return 1 in
 
-let ex_1a () = 
+    let u = v / w + x * y + z in
+    
+    printf "+ ex_1 u = %d\n%!" (F.sample u)
+end
+
+module Ex_1a = struct 
   (* extending ex_1 *)
+    
+  let (/) = F.lift2 (/)
+  and ( * ) = F.lift2 ( * )
+  and (+) = F.lift2 (+)
 
-  let v = F.return 4 in
-  let w = F.return 2 in
-  let x = F.return 2 in
-  let y = F.return 3 in
-  let z, zs = F.make_cell 1 in
+  let main () = 
+    let v = F.return 4 in
+    let w = F.return 2 in
+    let x = F.return 2 in
+    let y = F.return 3 in
+    let z, zs = F.make_cell 1 in
+
+    let u = v / w + x * y + z in
+    
+    printf "+ ex_1a u = %d\n%!" (F.sample u); 
+    zs 2;
+    DG.propagate (); (* wonder why `propagate` not exposed in Froc? *)
+    printf "+ ex_1a u = %d\n%!" (F.sample u)
+end
 
   let u = v / w + x * y + z in
   
@@ -54,7 +70,9 @@ let ex_1a () =
 
 let () = 
   F.init ();
+  (* appears to be a no-op *)
   F.set_debug (fun s -> printf "+ %s\n%!" s);
   
-  ex_1 ();
-  ex_1a ()
+  Ex_1.main ();
+  Ex_1a.main ();
+  Ex_2.main ()
