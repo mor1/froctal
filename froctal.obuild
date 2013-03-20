@@ -5,8 +5,8 @@ obuild-ver: 1
 authors: Richard Mortier
 license: ISC
 
-executable froctal
-  main-is: main.ml
+executable examples
+  main-is: examples.ml
   src-dir: exe
   buildDepends: cmdliner, froc
 
