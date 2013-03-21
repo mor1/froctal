@@ -85,9 +85,29 @@ module Ex_2 = struct
          Froc.behavior. hence we try (return n0) below
       *)
       let y = bind2 b n0 (fun b n0 -> if b then return 0 else return n0) in
-      y
+      sample y
     in
-    printf "+ ex_2 (f' 10 = %d) (f' 0 = %d)\n%!" (sample (f' 10)) (sample (f' 0))
+    printf "+ ex_2 (f' 10 = %d) (f' 0 = BARF)\n%!" (f' 10);
+    (* following barfs with Division_by_zero because the graph does not take
+       account of the control dependency between `b` and `n0` (that is, 100/x)
+       -- the change in x changes x' which changes *both* b and n0
+
+       printf "+ ex_2 (f' 10 = %d)\n%!" (f' 0)
+    *)
+    ();
+
+    let f'' x = 
+      let x' = return x in
+      let b = x' >>= fun x -> return (x = 0) in
+      let y = b >>= (fun b -> 
+        if b then return 0 
+        else x' >>= fun x -> return (100 / x)
+      )
+    in
+    sample y
+  
+  in
+  printf "+ ex_2 (f'' 10 = %d) (f'' 0 = %d)\n%!" (f'' 10) (f'' 0)
 
 end
 
