@@ -16,7 +16,6 @@
 open Printf
 module F = Froc
 module DG = Froc_ddg
-module SA = Froc_sa
 
 module Ex_1 = struct 
   (* simple first example from
