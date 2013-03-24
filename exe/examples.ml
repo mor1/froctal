@@ -158,6 +158,7 @@ let () =
   (* appears to be a no-op *)
   F.set_debug (fun s -> printf "+ %s\n%!" s);
   
-  Ex_1.main ();
-  Ex_1a.main ();
-  Ex_2.main ()
+  Ex_1.main ()
+  ; Ex_1a.main ()
+  ; Ex_2.main ()
+  ; Ex_3.main ()
