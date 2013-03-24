@@ -17,6 +17,8 @@ open Printf
 module F = Froc
 module DG = Froc_ddg
 
+let (|>) x f = f x
+
 module Ex_1 = struct 
   (* simple first example from
      <http://ambassadortothecomputers.blogspot.co.uk/2010/05/how-froc-works.html>
@@ -108,6 +110,47 @@ module Ex_2 = struct
   in
   printf "+ ex_2 (f'' 10 = %d) (f'' 0 = %d)\n%!" (f'' 10) (f'' 0)
 
+end
+
+module Ex_3 = struct
+  open Froc
+
+  let fmt lst = 
+    "[ " ^ (List.map (fun e -> sprintf "%d" e) lst |> String.concat "; ") ^ " ]"
+
+  type 'a lst = Nil | Cons of 'a * 'a lst Froc.behavior
+
+  let rec make_lst = function
+    | [] -> return Nil
+    | h :: t -> let t = make_lst t in return (Cons (h, t))
+    
+  let rec map f lst = 
+    lst >>= function
+      | Nil -> return Nil
+      | Cons (h, t) -> let t = map f t in return (Cons (f h, t))
+
+  let mmap f lst = 
+    let memo = memo () in 
+    let rec map lst = 
+      lst >>= function 
+        | Nil -> return Nil 
+        | Cons (h, t) -> let t = memo map t in return (Cons (f h, t)) 
+    in 
+    memo map lst 
+
+  let fmt' lst = 
+    let rec aux lst = match sample lst with
+      | Nil -> []
+      | Cons (h, t) -> let h = sprintf "%d" h in h :: aux t
+    in
+    "[ " ^ (String.concat "; " (aux lst)) ^ " ]"
+      
+  let main () = 
+    let lst = make_lst [1; 2; 3] in
+    let lst' = map (fun x -> x + 1) lst in
+    let lst'' = mmap (fun x -> x + 1) lst in
+    printf "+ ex_3 (lst = %s) (lst' = %s) (lst'' = %s)\n%!" (fmt' lst) (fmt' lst') (fmt' lst'')
+    
 end
 
 let () = 
