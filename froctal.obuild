@@ -8,5 +8,10 @@ license: ISC
 executable examples
   main-is: examples.ml
   src-dir: exe
+  buildDepends: froc
+
+executable froctal
+  main-is: froctal.ml
+  src-dir: exe
   buildDepends: cmdliner, froc
 
