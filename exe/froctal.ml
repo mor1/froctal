@@ -15,7 +15,6 @@
 
 open Printf
 module F = Froc
-module DG = Froc_ddg
 
 module R = struct
 
@@ -36,10 +35,10 @@ module R = struct
   let main () = 
     let sx, sy, z = f () in
     printf "z %d\n%!" (F.sample z);
-    sx (r ()); DG.propagate(); printf "1z %d\n%!" (F.sample z);
-    sx (r ()); DG.propagate(); printf "2z %d\n%!" (F.sample z);
-    sx (r ()); DG.propagate(); printf "3z %d\n%!" (F.sample z);
-    sx (r ()); DG.propagate(); printf "4z %d\n%!" (F.sample z)
+    sx (r ()); printf "1z %d\n%!" (F.sample z);
+    sx (r ()); printf "2z %d\n%!" (F.sample z);
+    sx (r ()); printf "3z %d\n%!" (F.sample z);
+    sx (r ()); printf "4z %d\n%!" (F.sample z)
 
 end
 
