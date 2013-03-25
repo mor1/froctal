@@ -42,10 +42,50 @@ module R = struct
 
 end
 
+module L = struct
+
+  type inotify = 
+    | Changed of string
+
+  let watch delay fn = 
+    (* racy kludge. *)
+    Lwt.(Lwt_unix.(
+      lwt o = stat fn in
+      let ot = ref o.st_mtime in
+
+      let rec aux delay fn = 
+        sleep delay 
+        >> lwt f = stat fn in
+           let t = f.st_mtime in
+           let delta = !ot -. t in
+           if delta = 0. then aux delay fn
+           else (
+             ot := t;
+             return (Changed fn)
+           )
+      in aux delay fn
+    ))
+
+  let timeout tm ts = 
+    Lwt.(
+      let tm = Lwt_unix.sleep tm >> return None in
+      let ts = List.map (fun t -> t >>= fun v -> return (Some v)) ts in
+      pick (tm :: ts)
+    )
+
+  let main () = 
+    let ts = [ watch 0.3 "watched"; watch 0.6 "also-watched" ] in
+    match Lwt_main.run (timeout 10. ts) with
+      | None -> printf "timedout!\n%!"
+      | Some (Changed s) -> printf "changed %s\n%!" s
+
+end
+
 let () = 
   Random.self_init ();
   F.init ();
   (* appears to be a no-op *)
   F.set_debug (fun s -> printf "+ %s\n%!" s);
-
-  R.main ()
+  
+  R.main ();
+  L.main ()
