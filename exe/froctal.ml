@@ -42,9 +42,12 @@ module R = struct
 
 end
 
-module L = struct
+module Watcher = struct
+    
+  type notify = 
+    | Changed of string
 
-  let watch delay fn cb = 
+  let watch delay fn = 
     (* racy kludge. *)
 
     printf "+ watch %f %s\n%!" delay fn;
@@ -59,13 +62,14 @@ module L = struct
            let t = f.st_mtime in
            if !ot -. t <> 0. then (
              ot := t;
-             cb fn
-           );
-           return ()
+             return (Changed fn)
+           )
+           else return ()
         >> aux delay fn
       in aux delay fn
     ))
 
+(*
   let timeout tm ts = 
     Lwt.(
       let tm = Lwt_unix.sleep tm >> return None in
@@ -78,32 +82,73 @@ module L = struct
     match Lwt_main.run (timeout 10. ts) with
       | None -> printf "timedout!\n%!"
       | Some () -> printf "changed\n%!"
+*)
 
 end
 
 let () = 
-  Random.self_init ();
   F.init ();
-  (* appears to be a no-op 
-  F.set_debug (fun s -> printf "+ %s\n%!" s);
-  *)
 
 (*
+  Random.self_init ();
   R.main ();
   L.main ();
 *)
 
-  let cb s = printf "#%s\n%!" s in
-  let x, sx = F.make_cell (Lwt_main.run (L.watch 0.3 "x" cb)) in
-  let y, sy = F.make_cell (Lwt_main.run (L.watch 0.6 "y" cb)) in
+  (*  x --> x' --> m
+      where x: the file watcher, 
+               sends e[filelength] when file mtime changes via xs' to
+            x': the filelength option, 
+                bound to
+            m: simply unpacks option (None -> -1 | Some l -> l)
+  *)
+      
 
-  let count = ref 0 in
-  let m = F.bind2 x y (fun x y ->
-    printf "@%d \n%!" !count;
-    incr count;
-    F.return ()
-  )
+  (* create x', the changeable holding the current filelength option, and a
+     setter *)
+  let x', xs' = F.make_cell None in
+
+  (* wrap the file watcher for now *)
+  let w () =     
+    let rec aux d fn = 
+      (* watch the file; thread terminates on change *)
+      match Lwt_main.run (Watcher.watch d fn) with
+        | Watcher.Changed fn ->
+            Lwt.(
+              (* read file length; may block *)
+              lwt l = Lwt_io.file_length fn in
+              
+              (* now we have the length, print it and send event with its
+                 value option to x' *)
+                printf "  %Ld\n%!" l;
+                return (xs' (Some l))
+)
+    in aux 0.3 "x"
   in
+
+  (* create x, the changeable holding the watcher itself, and a setter *)
+  let x, xs = F.make_cell (w ()) in              
+  
+  (* invocation counter, tracking when root node (m) changes *)
+  let count = ref 0 in
+
+  (* create root changeable m, and bind to the value of x' currently. 
+     extend this to compute over/select from multiple inputs. *)
+  let m = F.bind x' (fun x ->
+    printf "@%d\n%!" !count;
+    incr count;
+    F.return ( (* unpack option for now; more complex in future *)
+      match x with
+        | None -> -1L
+        | Some l -> l
+    ))
+  in
+  (* iterate watching for 100 changes to watched file *) 
   while !count < 100 do
-    F.sample m
+    (* get filelength from root, m *)
+    let v = F.sample m in
+    printf "* %Ld\n%!" v;
+    (* the watcher thread completed when it returned the change notification,
+       so reinitialise it with a new copy of the same watcher *)
+    xs (w ())
   done
