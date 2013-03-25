@@ -44,25 +44,25 @@ end
 
 module L = struct
 
-  type inotify = 
-    | Changed of string
-
-  let watch delay fn = 
+  let watch delay fn cb = 
     (* racy kludge. *)
+
+    printf "+ watch %f %s\n%!" delay fn;
     Lwt.(Lwt_unix.(
       lwt o = stat fn in
       let ot = ref o.st_mtime in
 
       let rec aux delay fn = 
+        printf "  + aux %s\n%!" fn;
         sleep delay 
         >> lwt f = stat fn in
            let t = f.st_mtime in
-           let delta = !ot -. t in
-           if delta = 0. then aux delay fn
-           else (
+           if !ot -. t <> 0. then (
              ot := t;
-             return (Changed fn)
-           )
+             cb fn
+           );
+           return ()
+        >> aux delay fn
       in aux delay fn
     ))
 
@@ -74,18 +74,36 @@ module L = struct
     )
 
   let main () = 
-    let ts = [ watch 0.3 "watched"; watch 0.6 "also-watched" ] in
+    let ts = [ watch 0.3 "watched" ignore; watch 0.6 "also-watched" ignore ] in
     match Lwt_main.run (timeout 10. ts) with
       | None -> printf "timedout!\n%!"
-      | Some (Changed s) -> printf "changed %s\n%!" s
+      | Some () -> printf "changed\n%!"
 
 end
 
 let () = 
   Random.self_init ();
   F.init ();
-  (* appears to be a no-op *)
+  (* appears to be a no-op 
   F.set_debug (fun s -> printf "+ %s\n%!" s);
-  
+  *)
+
+(*
   R.main ();
-  L.main ()
+  L.main ();
+*)
+
+  let cb s = printf "#%s\n%!" s in
+  let x, sx = F.make_cell (Lwt_main.run (L.watch 0.3 "x" cb)) in
+  let y, sy = F.make_cell (Lwt_main.run (L.watch 0.6 "y" cb)) in
+
+  let count = ref 0 in
+  let m = F.bind2 x y (fun x y ->
+    printf "@%d \n%!" !count;
+    incr count;
+    F.return ()
+  )
+  in
+  while !count < 100 do
+    F.sample m
+  done
