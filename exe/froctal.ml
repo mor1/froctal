@@ -86,69 +86,80 @@ module Watcher = struct
 
 end
 
-let () = 
-  F.init ();
-
-(*
-  Random.self_init ();
-  R.main ();
-  L.main ();
-*)
-
+module Lwt_in_froc = struct
   (*  x --> x' --> m
-      where x: the file watcher, 
-               sends e[filelength] when file mtime changes via xs' to
-            x': the filelength option, 
-                bound to
-            m: simply unpacks option (None -> -1 | Some l -> l)
+      y --> y' /
+      where x, y: the file watcher, 
+                  sends e[filelength] when file mtime changes via xs', ys' to
+            x',y': the filelength option, 
+                   bound to
+            m: simply unpacks option tuple (None -> -1 | Some l -> l)
   *)
-      
 
-  (* create x', the changeable holding the current filelength option, and a
-     setter *)
-  let x', xs' = F.make_cell None in
+  let main () =
+    (* doesn't work -- only one Lwt_main.run (ie., thread scheduler) is active
+       at a time, so we watch first "x" then when that changes we get it's
+       length and start watching "y". *)
+    
+    (* create x',y' the changeable holding the current filelength option, and a
+       setter *)
+    let x', xs' = F.make_cell None in
+    let y', ys' = F.make_cell None in
 
-  (* wrap the file watcher for now *)
-  let w () =     
-    let rec aux d fn = 
-      (* watch the file; thread terminates on change *)
-      match Lwt_main.run (Watcher.watch d fn) with
-        | Watcher.Changed fn ->
-            Lwt.(
-              (* read file length; may block *)
-              lwt l = Lwt_io.file_length fn in
+    (* wrap the file watcher for now *)
+    let w f s =     
+      let rec aux d fn = 
+        (* watch the file; thread terminates on change *)
+        match Lwt_main.run (Watcher.watch d fn) with
+          | Watcher.Changed fn ->
+              let open Lwt in
+                  (* read file length; may block *)
+                  lwt l = Lwt_io.file_length fn in
               
               (* now we have the length, print it and send event with its
                  value option to x' *)
-                printf "  %Ld\n%!" l;
-                return (xs' (Some l))
-)
-    in aux 0.3 "x"
-  in
+              printf "  %Ld\n%!" l;
+              return (s (Some l))
+      in aux 0.3 f
+    in
 
-  (* create x, the changeable holding the watcher itself, and a setter *)
-  let x, xs = F.make_cell (w ()) in              
-  
-  (* invocation counter, tracking when root node (m) changes *)
-  let count = ref 0 in
+    (* create x, the changeable holding the watcher itself, and a setter *)
+    let x, xs = F.make_cell (w "x" xs') in
+    let y, ys = F.make_cell (w "y" ys') in
+    
+    (* invocation counter, tracking when root node (m) changes *)
+    let count = ref 0 in
 
-  (* create root changeable m, and bind to the value of x' currently. 
-     extend this to compute over/select from multiple inputs. *)
-  let m = F.bind x' (fun x ->
-    printf "@%d\n%!" !count;
-    incr count;
-    F.return ( (* unpack option for now; more complex in future *)
-      match x with
-        | None -> -1L
-        | Some l -> l
-    ))
-  in
-  (* iterate watching for 100 changes to watched file *) 
-  while !count < 100 do
-    (* get filelength from root, m *)
-    let v = F.sample m in
-    printf "* %Ld\n%!" v;
-    (* the watcher thread completed when it returned the change notification,
-       so reinitialise it with a new copy of the same watcher *)
-    xs (w ())
-  done
+    (* create root changeable m, and bind to the value of (x',y') currently.
+       extend this to compute over/select from multiple inputs. *)
+    let m = F.bind2 x' y' (fun x y ->
+      printf "@%d\n%!" !count;
+      incr count;
+      F.return ( (* unpack option for now; more complex in future *)
+        let lx = match x with None -> -1L | Some l -> l in
+        let ly = match y with None -> -1L | Some l -> l in
+        (lx, ly)
+      ))
+    in
+    (* iterate watching for 100 changes to watched file *)
+    while !count < 100 do
+      (* get filelength from root, m *)
+      let lx, ly = F.sample m in
+      printf "* %Ld, %Ld\n%!" lx ly;
+      (* the watcher thread completed when it returned the change notification,
+         so reinitialise it with a new copy of the same watcher *)
+      xs (w "x" xs');
+      ys (w "y" ys')
+    done
+end 
+
+let () = 
+  F.init ();
+
+  (*
+    Random.self_init ();
+    R.main ();
+    L.main ();
+  *)
+
+  Lwt_in_froc.main ()
