@@ -13,6 +13,6 @@ executable examples
 executable froctal
   main-is: froctal.ml
   src-dir: exe
-  buildDepends: cmdliner, lwt, lwt.syntax, lwt.unix, froc
+  buildDepends: cmdliner, lwt, lwt.syntax, lwt.unix, lwt.preemptive, froc
   pp: camlp4o
 

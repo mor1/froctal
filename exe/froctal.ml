@@ -153,6 +153,49 @@ module Lwt_in_froc = struct
     done
 end 
 
+module Lwt_ex_froc = struct
+
+  let stat f =
+    let t () = Lwt_unix.stat f in
+    Lwt_preemptive.run_in_main t
+
+  let watch d f sigf =
+    let open Lwt in
+
+    let ot = ref (let o = stat f in Lwt_unix.(o.st_mtime)) in
+
+    let has_changed f = 
+      let st = stat f in !ot -. Lwt_unix.(st.st_mtime) <> 0.
+    in
+
+    let rec aux d f = 
+      Lwt_unix.sleep d 
+      >> if has_changed f then
+          (
+            let st = stat f in ot := Lwt_unix.(st.st_mtime);
+            sigf ()
+          );
+      aux d f
+    in aux d f
+
+  let bridge setter bridgef = setter (bridgef ()) 
+
+  let main () = 
+    let x, xs = F.make_cell None in
+    let xf = "x" in
+    let xbridge xf () = 
+      let f () = 
+        let st = stat xf in Some Lwt_unix.(st.st_size)
+      in
+        bridge xs f
+    in
+      
+    let wx = watch 0.5 xf (xbridge xf) in
+    ()
+
+end
+
+
 let () = 
   F.init ();
 
@@ -160,6 +203,7 @@ let () =
     Random.self_init ();
     R.main ();
     L.main ();
+    Lwt_in_froc.main ()
   *)
 
-  Lwt_in_froc.main ()
+  Lwt_ex_froc.main ()
