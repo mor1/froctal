@@ -156,19 +156,32 @@ end
 module Lwt_ex_froc = struct
 
   let stat f =
+    printf "+ stat %s\n%!" f;
+  (*
     let t () = Lwt_unix.stat f in
     Lwt_preemptive.run_in_main t
+  *)
+    Lwt_main.run (Lwt_unix.stat f)
+
 
   let watch d f sigf =
+    printf "+ watch %f %s\n%!" d f;
     let open Lwt in
 
-    let ot = ref (let o = stat f in Lwt_unix.(o.st_mtime)) in
+    let ot = ref (
+      printf "+ ot\n%!";
+      let o = stat f in
+      printf "+ in stat\n%!";
+      Lwt_unix.(o.st_mtime)) 
+    in
 
     let has_changed f = 
+      printf "+ has_changed %s\n%!" f;
       let st = stat f in !ot -. Lwt_unix.(st.st_mtime) <> 0.
     in
 
     let rec aux d f = 
+      printf "+ aux %f %s\n%!" d f;
       Lwt_unix.sleep d 
       >> if has_changed f then
           (
@@ -181,17 +194,32 @@ module Lwt_ex_froc = struct
   let bridge setter bridgef = setter (bridgef ()) 
 
   let main () = 
+    Lwt_preemptive.simple_init ();
     let x, xs = F.make_cell None in
     let xf = "x" in
     let xbridge xf () = 
+      printf "+ xbridge %s\n%!" xf;
       let f () = 
         let st = stat xf in Some Lwt_unix.(st.st_size)
       in
-        bridge xs f
+      bridge xs f;
+      printf "== %d == \n%!" (match F.sample x with None -> -1 | Some v -> v)
+    in
+      
+    let y, ys = F.make_cell None in
+    let yf = "y" in
+    let ybridge yf () = 
+      printf "+ ybridge %s\n%!" yf;
+      let f () = 
+        let st = stat yf in Some Lwt_unix.(st.st_size)
+      in
+      bridge ys f;
+      printf "== %d == \n%!" (match F.sample y with None -> -1 | Some v -> v)
     in
       
     let wx = watch 0.5 xf (xbridge xf) in
-    ()
+    let wy = watch 0.5 yf (ybridge yf) in
+    Lwt_main.run (Lwt.join [wx; wy])
 
 end
 
