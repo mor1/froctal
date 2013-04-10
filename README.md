@@ -27,11 +27,13 @@ _Data-space_ handled by `Lwt` or other threading system. The state of a running 
 
 _Configuration-space_ handled by `Froc` or other FRP system. Also a unikernel ultimately, but in a "manager" role.
 
+__Assumption__: data-space unikernels have some communication channel back to the configuration-space.
+
 _Behaviors_ or _Changeables_ (`Froc`), or _Signals_ (`React`)  are values that can change over time, but are defined at all times.
 
 _Events_ (`Froc` and `React`) are defined only at particular instants in time, possibly (but not necessarily) with a different value at each instant. 
 
-Note `Froc` uses _signals_ to refer to events and behaviors when the distinction isn't important.
+__NB__. `Froc` uses _signals_ to refer to events and behaviors when the distinction isn't important.
 
 ## Discussion
 
