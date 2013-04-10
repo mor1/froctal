@@ -35,7 +35,7 @@ _Events_ (`Froc` and `React`) are defined only at particular instants in time, p
 
 __NB__. `Froc` uses _signals_ to refer to events and behaviors when the distinction isn't important.
 
-## Discussion
+### Discussion
 
 Need to communicate changes in data-space into the `Froc` computation. The `Froc` computation will then act on this, e.g., by spinning up a new VM.
 
