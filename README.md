@@ -1,10 +1,10 @@
-# Some Mirage Deployment Scenarios (_mirari run_)
+# Some Mirage Deployment Scenarios (cf. _mirari run_)
 
 A set of scenarios so I can clarify my thoughts about how we need to integrate Mirage, Mirari, Froc, Lwt, etc.
 
 ## Scenarios
 
-## Hotplug event (data-space change)
+### Hotplug event (data-space change)
 
 Introduction of new "device" (typically logically via XenStore) potentially provokes app to use new device. E.g., higher performance network interface available; ARP change; existence of new, more appropriate storage.
 
