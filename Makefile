@@ -27,3 +27,4 @@ build:
 
 clean:
 	obuild clean
+	$(RM) */*.annot
