@@ -1,4 +1,4 @@
-`# Some Mirage Deployment Scenarios (_mirari run_)
+# Some Mirage Deployment Scenarios (_mirari run_)
 
 A set of scenarios so I can clarify my thoughts about how we need to integrate Mirage, Mirari, Froc, Lwt, etc.
 
