@@ -14,224 +14,32 @@
  *)
 
 open Printf
-module F = Froc
 
-module R = struct
+module Bridge : sig
 
-  let r () = let r = Random.int 5 in printf "[r %d]\n%!" r; r
+  (** This module attempts to bridge between the data-space and the
+      configuration-space. Verbs are in relation to the configuration-space. *)
+    
+  type 'a event = 'a Froc.event
+  type 'a thread = 'a Lwt.t
 
-  let c = ref 0
-  let d = ref 0
+  val absorb : (unit -> 'a thread) -> 'a event
+    (** [absorb f] creates an event occurring each time [f ()] yields a value. *)
 
-  let f () = 
-    printf "[c %d]\n%!" (!c); incr c;
-    let x, sx = F.make_cell (r ()) in
-    let y, sy = F.make_cell (r ()) in
-    sx, sy, F.bind2 x y (fun x y -> 
-      printf "[d %d] x=%d y=%d\n%!" (!d) x y;
-      incr d;
-      F.return (compare x y))
+  val emit : 'a event -> 'a thread
+    (** [emit e] creates a thread that yields its value before terminating. *)
 
-  let main () = 
-    let sx, sy, z = f () in
-    printf "z %d\n%!" (F.sample z);
-    sx (r ()); printf "1z %d\n%!" (F.sample z);
-    sx (r ()); printf "2z %d\n%!" (F.sample z);
-    sx (r ()); printf "3z %d\n%!" (F.sample z);
-    sx (r ()); printf "4z %d\n%!" (F.sample z)
+end = struct
+
+  let absorb f = 
+    let v, vs = Froc.make_cell () in
+    let rec loop () = 
+      f () >>= fun x -> if Froc.sample v != x then vs x; loop ()
+    in
+    Lwt.pause () >>= loop  
+
+  let emit e = 
+    let ev = Froc.sample e in
+    Lwt.return ev
 
 end
-
-module Watcher = struct
-    
-  type notify = 
-    | Changed of string
-
-  let watch delay fn = 
-    (* racy kludge. *)
-
-    printf "+ watch %f %s\n%!" delay fn;
-    Lwt.(Lwt_unix.(
-      lwt o = stat fn in
-      let ot = ref o.st_mtime in
-
-      let rec aux delay fn = 
-        printf "  + aux %s\n%!" fn;
-        sleep delay 
-        >> lwt f = stat fn in
-           let t = f.st_mtime in
-           if !ot -. t <> 0. then (
-             ot := t;
-             return (Changed fn)
-           )
-           else return ()
-        >> aux delay fn
-      in aux delay fn
-    ))
-
-(*
-  let timeout tm ts = 
-    Lwt.(
-      let tm = Lwt_unix.sleep tm >> return None in
-      let ts = List.map (fun t -> t >>= fun v -> return (Some v)) ts in
-      pick (tm :: ts)
-    )
-
-  let main () = 
-    let ts = [ watch 0.3 "watched" ignore; watch 0.6 "also-watched" ignore ] in
-    match Lwt_main.run (timeout 10. ts) with
-      | None -> printf "timedout!\n%!"
-      | Some () -> printf "changed\n%!"
-*)
-
-end
-
-module Lwt_in_froc = struct
-  (*  x --> x' --> m
-      y --> y' /
-      where x, y: the file watcher, 
-                  sends e[filelength] when file mtime changes via xs', ys' to
-            x',y': the filelength option, 
-                   bound to
-            m: simply unpacks option tuple (None -> -1 | Some l -> l)
-  *)
-
-  let main () =
-    (* doesn't work -- only one Lwt_main.run (ie., thread scheduler) is active
-       at a time, so we watch first "x" then when that changes we get it's
-       length and start watching "y". *)
-    
-    (* create x',y' the changeable holding the current filelength option, and a
-       setter *)
-    let x', xs' = F.make_cell None in
-    let y', ys' = F.make_cell None in
-
-    (* wrap the file watcher for now *)
-    let w f s =     
-      let rec aux d fn = 
-        (* watch the file; thread terminates on change *)
-        match Lwt_main.run (Watcher.watch d fn) with
-          | Watcher.Changed fn ->
-              let open Lwt in
-                  (* read file length; may block *)
-                  lwt l = Lwt_io.file_length fn in
-              
-              (* now we have the length, print it and send event with its
-                 value option to x' *)
-              printf "  %Ld\n%!" l;
-              return (s (Some l))
-      in aux 0.3 f
-    in
-
-    (* create x, the changeable holding the watcher itself, and a setter *)
-    let x, xs = F.make_cell (w "x" xs') in
-    let y, ys = F.make_cell (w "y" ys') in
-    
-    (* invocation counter, tracking when root node (m) changes *)
-    let count = ref 0 in
-
-    (* create root changeable m, and bind to the value of (x',y') currently.
-       extend this to compute over/select from multiple inputs. *)
-    let m = F.bind2 x' y' (fun x y ->
-      printf "@%d\n%!" !count;
-      incr count;
-      F.return ( (* unpack option for now; more complex in future *)
-        let lx = match x with None -> -1L | Some l -> l in
-        let ly = match y with None -> -1L | Some l -> l in
-        (lx, ly)
-      ))
-    in
-    (* iterate watching for 100 changes to watched file *)
-    while !count < 100 do
-      (* get filelength from root, m *)
-      let lx, ly = F.sample m in
-      printf "* %Ld, %Ld\n%!" lx ly;
-      (* the watcher thread completed when it returned the change notification,
-         so reinitialise it with a new copy of the same watcher *)
-      xs (w "x" xs');
-      ys (w "y" ys')
-    done
-end 
-
-module Lwt_ex_froc = struct
-
-  let stat f =
-    printf "+ stat %s\n%!" f;
-  (*
-    let t () = Lwt_unix.stat f in
-    Lwt_preemptive.run_in_main t
-  *)
-    Lwt_main.run (Lwt_unix.stat f)
-
-
-  let watch d f sigf =
-    printf "+ watch %f %s\n%!" d f;
-    let open Lwt in
-
-    let ot = ref (
-      printf "+ ot\n%!";
-      let o = stat f in
-      printf "+ in stat\n%!";
-      Lwt_unix.(o.st_mtime)) 
-    in
-
-    let has_changed f = 
-      printf "+ has_changed %s\n%!" f;
-      let st = stat f in !ot -. Lwt_unix.(st.st_mtime) <> 0.
-    in
-
-    let rec aux d f = 
-      printf "+ aux %f %s\n%!" d f;
-      Lwt_unix.sleep d 
-      >> if has_changed f then
-          (
-            let st = stat f in ot := Lwt_unix.(st.st_mtime);
-            sigf ()
-          );
-      aux d f
-    in aux d f
-
-  let bridge setter bridgef = setter (bridgef ()) 
-
-  let main () = 
-    Lwt_preemptive.simple_init ();
-    let x, xs = F.make_cell None in
-    let xf = "x" in
-    let xbridge xf () = 
-      printf "+ xbridge %s\n%!" xf;
-      let f () = 
-        let st = stat xf in Some Lwt_unix.(st.st_size)
-      in
-      bridge xs f;
-      printf "== %d == \n%!" (match F.sample x with None -> -1 | Some v -> v)
-    in
-      
-    let y, ys = F.make_cell None in
-    let yf = "y" in
-    let ybridge yf () = 
-      printf "+ ybridge %s\n%!" yf;
-      let f () = 
-        let st = stat yf in Some Lwt_unix.(st.st_size)
-      in
-      bridge ys f;
-      printf "== %d == \n%!" (match F.sample y with None -> -1 | Some v -> v)
-    in
-      
-    let wx = watch 0.5 xf (xbridge xf) in
-    let wy = watch 0.5 yf (ybridge yf) in
-    Lwt_main.run (Lwt.join [wx; wy])
-
-end
-
-
-let () = 
-  F.init ();
-
-  (*
-    Random.self_init ();
-    R.main ();
-    L.main ();
-    Lwt_in_froc.main ()
-  *)
-
-  Lwt_ex_froc.main ()

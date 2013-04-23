@@ -8,11 +8,11 @@ license: ISC
 executable examples
   main-is: examples.ml
   src-dir: exe
-  buildDepends: froc
+  build-deps: froc
 
 executable froctal
   main-is: froctal.ml
-  src-dir: exe
-  buildDepends: cmdliner, lwt, lwt.syntax, lwt.unix, lwt.preemptive, froc
+  src-dir: src
+  build-deps: cmdliner, lwt, lwt.syntax, lwt.unix, lwt.preemptive, froc
   pp: camlp4o
 

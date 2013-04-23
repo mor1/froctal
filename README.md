@@ -12,7 +12,7 @@ _Does `libfable` just take care of all these cases?_
 
 ### Reconfiguration (configuration-space change)
 
-Incoming reconfiguration to this instance triggers reconfiguration in other instances. E.g., interface change in A triggers routing change that must be propagated to routers B and C.
+Incoming reconfiguration to this instance triggers reconfiguration in other instances. E.g., interface change in A triggers routing change that must be propagated to routers B and C. Dustclouds.
 
 ### Self-scaling (data-space change causes configuration-space change)
 
@@ -47,14 +47,33 @@ So we need mechanisms for:
 2. the Mirari unikernel to transform its state as a result of that signal; and
 3. as a result of that transformation, the Mirari unikernel to transform the state of zero or more of the `'a Unikernels` it controls.
 
-(1), assuming the Mirari unikernel itself uses `Lwt`, requires a way to emit a `Froc` signal from an `'a Lwt`, restarting the `'a Lwt`.
+(1), assuming the Mirari unikernel itself uses `Lwt` to handle external IO, requires a way to emit an event from an `'a Lwt`, restarting the `'a Lwt`.
 
-(2) requires the Mirari unikernel effectively to wrap up a `Froc` SA computation.
+(2) requires the Mirari unikernel effectively to wrap up an FRP computation.
 
-(3) requires the Mirari unikernel  to be able to construct, start and kill `'a Unikernel`s on the fly.
+(3) requires the Mirari unikernel to be able to construct, start and kill `'a Unikernel`s on the fly.
+
+### Requirements
+
+1. support for transforming `Lwt` threads into FRP events. 
+2. support for 
 
 
 # Scratchpad
+
+## 2013-04-16
+
+view each `'a Unikernel` as a type that supports certain operators. what should those operators be?  can then represent this set in an FRP computation inside mirari (?)
+
+need to bridge IO world (Lwt) into FRP (Froc) in mirari
+
+FRP computation has nodes that may have sideeffects, one of which may be to create/destroy an `'a Unikernel`
+
+does this mean we *need* Froc's ability to "detach" nodes in the FRP computation, representing destruction of a unikernel?
+
+`'a` in the above really represents the feature set that's been compiled in -- the libraries that mirari chose to link to create the `'a Unikernel` in question (?)
+
+## 2013-04-10
 
 Need to communicate config changes into data-space, i.e., to transform the current data-space configuration (set of `'a Lwt`) as a result of a change in configuration-space. This is the direction that can be mocked up via fork plus transformation function per anil's suggestion.
 
